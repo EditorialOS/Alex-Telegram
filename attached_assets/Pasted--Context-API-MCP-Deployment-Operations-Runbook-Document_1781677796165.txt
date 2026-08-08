@@ -1,0 +1,210 @@
+# Context API MCP — Deployment & Operations Runbook
+
+**Document type:** Deployment / Operations Runbook (handoff doc)
+**Product:** Context API exposed as a multi-tenant MCP server over HTTPS
+**Status:** Live in production
+**Last updated:** 2026-06-14
+**Owner:** (you)
+
+---
+
+## 1. What this is (one paragraph)
+
+The Editorial OS **Context API** (a REST service running on a Hostinger VPS) is
+wrapped by an **MCP (Model Context Protocol) server** so that AI clients
+(Claude Desktop, Cursor, etc.) can call it as native tools. The MCP server is
+**multi-tenant**: each customer authenticates with their own `eos_` API key,
+and every request is scoped to that customer's own workspace. It is served over
+**HTTPS** with an auto-renewing Let's Encrypt certificate via the Traefik
+reverse proxy already running on the box. New customers are onboarded with a
+single command that mints an isolated workspace + key.
+
+---
+
+## 2. Key facts / endpoints
+
+| Item | Value |
+|---|---|
+| VPS | Hostinger KVM 2, Ubuntu 24.04, `187.124.87.148` (hostname `srv1461270.hstgr.cloud`) |
+| SSH | `root@187.124.87.148` (key auth) |
+| Context API (internal) | `http://api:8080/api` (Docker DNS) / host `http://127.0.0.1:8080/api` |
+| Context API (public) | `http://187.124.87.148:8080/api` |
+| **MCP server (public)** | **`https://context-mcp.srv1461270.hstgr.cloud/mcp`** (POST) |
+| MCP health | `https://context-mcp.srv1461270.hstgr.cloud/healthz` → `{"status":"ok"}` |
+| MCP host port | `8083` → container port `3000` |
+| Docker network | `context-api_default` (MCP joins this; internal API DNS = `api`) |
+| TLS | Let's Encrypt via Traefik (`certresolver=letsencrypt`, auto-renew) |
+| Source dir on VPS | `/opt/context-api-mcp/` |
+| Tool count | 39 (auto-generated from the API's OpenAPI spec) |
+
+---
+
+## 3. Architecture
+
+```
+AI client (Claude/Cursor)
+   │  POST https://context-mcp.srv1461270.hstgr.cloud/mcp
+   │  Authorization: Bearer eos_<customer key>
+   ▼
+Traefik (host-networked, :443, Let's Encrypt TLS)
+   │  routes Host(context-mcp.srv1461270.hstgr.cloud) → container :3000
+   ▼
+context-api-mcp container  (Node + express + @modelcontextprotocol/sdk)
+   │  reads the client's bearer token per-request, forwards it unchanged
+   │  http://api:8080/api  (same Docker network)
+   ▼
+context-api-api-1  (the Context API)
+   ▼
+context-api-postgres-1  (Postgres; stores only the SHA-256 hash of each key)
+```
+
+**Design decision — pass-through auth = instant multi-tenancy.** The MCP server
+holds NO shared secret. It forwards each request's bearer token to the Context
+API, which already enforces per-workspace isolation. Therefore a customer's key
+only ever sees that customer's data. (Verified: key A → workspace A only; key B
+→ workspace B only; bad/no key → 401.)
+
+**Design decision — spec-driven tools.** On startup the server fetches
+`/api/openapi.yaml` and registers one MCP tool per operation. When the API gains
+endpoints, restart the MCP container and the new tools appear — no code edits.
+
+---
+
+## 4. Files on the VPS (`/opt/context-api-mcp/`)
+
+- `server.js` — the MCP server (auto-generates tools, pass-through auth, 401 when no key).
+- `package.json` — deps: `@modelcontextprotocol/sdk`, `express`, `yaml`, `zod`.
+- `Dockerfile` — `node:22-alpine`, `npm install --omit=dev`, runs `node server.js`.
+- `docker-compose.yml` — service `mcp`, port `8083:3000`, Traefik labels, joins `context-api_default`.
+- `provision-customer.sh` — onboarding script (see §6).
+- `.env` — (legacy demo token; not used in multi-tenant mode, `ALLOW_FALLBACK_TOKEN=0`).
+
+Key env vars (compose):
+- `CONTEXT_API_BASE_URL=http://api:8080/api`
+- `ALLOW_FALLBACK_TOKEN=0` (set `1` only for a demo single-token mode)
+- `PORT=3000`
+
+---
+
+## 5. Connecting a client
+
+Streamable-HTTP MCP client config:
+```json
+{
+  "mcpServers": {
+    "context-api": {
+      "url": "https://context-mcp.srv1461270.hstgr.cloud/mcp",
+      "headers": { "Authorization": "Bearer eos_CUSTOMER_KEY" }
+    }
+  }
+}
+```
+
+stdio-only clients (e.g. some Claude Desktop setups) — bridge with mcp-remote:
+```json
+{
+  "mcpServers": {
+    "context-api": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "https://context-mcp.srv1461270.hstgr.cloud/mcp",
+               "--header", "Authorization: Bearer eos_CUSTOMER_KEY"]
+    }
+  }
+}
+```
+
+---
+
+## 6. Onboarding a paying customer
+
+```bash
+ssh root@187.124.87.148 /opt/context-api-mcp/provision-customer.sh "Customer Name"
+```
+Output includes: Workspace ID, the raw `eos_` key (shown ONCE), the MCP endpoint,
+and the client header. The script reads the admin secret from the API container
+at runtime (`docker exec context-api-api-1 printenv ADMIN_SECRET`) and calls
+`POST /api/workspaces` — it never prints the admin secret and never touches SQL
+directly.
+
+> ⚠️ Only the SHA-256 **hash** of a key is stored. The raw `eos_` key cannot be
+> recovered — capture it at creation and deliver it to the customer securely.
+
+**Revoke a customer key** (deletes the key row; keep the workspace if you want to re-issue):
+```bash
+ssh root@187.124.87.148 'docker exec -i context-api-postgres-1 sh -c \
+  "psql -U \$POSTGRES_USER -d \$POSTGRES_DB -c \"DELETE FROM api_keys WHERE api_key_prefix='\''eos_XXXXXXXX'\'';\""'
+```
+
+---
+
+## 7. Operations
+
+**Logs**
+```bash
+docker logs -f context-api-mcp
+```
+
+**Restart / rebuild after editing server.js**
+```bash
+cd /opt/context-api-mcp && docker compose up -d --build
+```
+
+**Pick up new API endpoints** (just restart — spec re-fetched on boot)
+```bash
+docker restart context-api-mcp
+```
+
+**Smoke check**
+```bash
+curl -s https://context-mcp.srv1461270.hstgr.cloud/healthz        # {"status":"ok"}
+# 401 expected (no key):
+curl -s -o /dev/null -w "%{http_code}\n" -X POST \
+  -H "Content-Type: application/json" -H "Accept: application/json, text/event-stream" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' \
+  https://context-mcp.srv1461270.hstgr.cloud/mcp
+```
+
+**TLS cert** auto-renews via Traefik/Let's Encrypt; no action needed.
+
+---
+
+## 8. Verification record (acceptance tests that passed)
+
+- `initialize` handshake OK (protocol 2024-11-05).
+- `tools/list` → 39 tools.
+- `tools/call getCurrentWorkspace` with a valid key → HTTP 200, correct workspace.
+- No `Authorization` header → 401.
+- Bogus key → 401 (`Invalid API key`).
+- Two different keys each return ONLY their own workspace (tenant isolation).
+- Public HTTPS endpoint serves a valid Let's Encrypt certificate.
+
+---
+
+## 9. Known hardening gaps (before charging real money)
+
+These are business/ops items; the technical path works without them.
+1. **Metering / billing** — no usage tracking or Stripe integration; billing is manual.
+2. **Rate limiting / quotas** — no per-key limits yet. Redis is on the box and can back this.
+3. **Self-serve key management** — revocation is a manual SQL delete; no customer portal.
+4. **Monitoring / alerting** — add `/healthz` to uptime checks; alert on container restart loops.
+5. **Backups** — ensure Postgres backups run (see the Context API runbook: `scripts/ops/backup-postgres.sh`).
+
+---
+
+## 10. Reproducing this on another API
+
+A reusable SAI skill named **`api-to-sellable-mcp`** encodes this whole
+procedure (recon → build → multi-tenant auth → Traefik HTTPS → verify →
+onboarding script) plus the gotchas below. Load it in any SAI chat.
+
+**Gotchas that will bite you otherwise:**
+- PowerShell→ssh→bash mangles nested quotes. **Base64-encode remote scripts/files** and run `echo <b64> | base64 -d | bash`.
+- A mis-quoted curl `Authorization` header makes curl treat "Bearer" as a hostname → silent auth failure. Verify with raw output.
+- Use **namespace imports** in server.js: `import * as zodMod from "zod"; const z = zodMod.z || zodMod.default || zodMod;` (named `{ z }` failed in-container). Same for `yaml`.
+- Mint keys via the API's create-workspace endpoint, NOT raw SQL (the workspace row requires a key hash).
+- Need a public-resolving hostname (Hostinger wildcard `*.srvNNN.hstgr.cloud`) for the Let's Encrypt HTTP challenge.
+- Traefik here is host-networked — it reaches the container's bridge IP directly; do NOT `docker network connect` it.
+
+---
+
+*End of runbook.*

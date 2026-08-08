@@ -1,0 +1,20 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "sIYcz2RY7kkfuBq-m3pnA"
+uri = "file://docs/alex-system-overview.md"
+type = "text"
+title = "Alex System Overview (docs)"
+
+[[outputs]]
+id = "tFOkfRjiMQ40WUmmIHx0i"
+uri = "file://docs/alex-onboarding.md"
+type = "text"
+title = "Alex Setup Guide — Get to 100%"
+
+[[outputs]]
+id = "pu38FaTIxWK_3B1AmmXCL"
+uri = "file://attached_assets/alex-routines-v2.1_1781667695456.md"
+type = "text"
+title = "alex-routines v2.1 (routine registry in repo)"

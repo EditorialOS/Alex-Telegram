@@ -1,0 +1,6 @@
+- [Slack slash commands](slack-slash-commands.md) — reply via response_url not chat.postMessage; trim signing secret; secret is per-app, bot token per-workspace
+- [Context API memory](context-api-memory.md) — Alex memory backed by external Context API; scope per workspace via product=alex:<teamId>; fail-open timeouts; memory is untrusted (injection guard); HTTP transport caveat
+- [Alex tenant state & distribution](alex-tenant-state.md) — per-workspace state in Postgres; public OAuth "Add to Slack" install w/ per-team bot tokens (plaintext, encrypt later); HMAC CSRF state; gate uses brandVoice only; teammate `Name:` sets display name
+- [Alex arrival onboarding](alex-onboarding-wizard.md) — post-OAuth web wizard: structured field per brand attribute → updateTenantFile directly (no AI step; 2nd door, not a parallel write path). SSRF rule kept for any future user-URL fetch
+- [Alex memory — two systems](alex-conversation-memory.md) — Context API learnings + DB conversation history coexist (additive); store every invocation, replay only successful ones; record via finally; fail-open
+- [Alex deployment / pilot](alex-deployment-pilot.md) — deploy as Reserved VM (ack-then-setImmediate needs always-on); publish→get domain→wire Slack URLs→install; prod schema auto-applied on publish
