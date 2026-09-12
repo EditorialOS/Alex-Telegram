@@ -1,0 +1,161 @@
+# Alex Story Desk V.1 — private ChatGPT setup
+
+Story Desk exposes one OAuth-protected Streamable HTTP MCP endpoint at
+`/api/mcp`. It has no dashboard or separate web chat.
+
+## Included operations
+
+- `alex.create_opportunity_board`
+- `alex.get_opportunity_board`
+- `alex.approve_briefs`
+- `alex.get_job_status`
+
+Every operation derives the tenant from a verified Supabase OAuth access token.
+A client ID, user ID or Box folder ID supplied in a tool request is never
+trusted or accepted.
+
+## 1. Apply the Supabase schema
+
+Run `lib/db/migrations/0001_story_desk_v1.sql` in the Supabase SQL editor or
+with `psql`. Existing Slack and Telegram tables are unchanged.
+
+Create the tenant record. The Box folder ID is server-owned configuration:
+
+```sql
+insert into story_desk_clients (id, name, box_folder_id)
+values ('client_slug', 'Client name', 'box_folder_id');
+```
+
+## 2. Configure Supabase Auth as the OAuth 2.1 server
+
+In the same Supabase project:
+
+1. Migrate Auth JWT signing to an asymmetric RS256 or ES256 key.
+2. Enable **Authentication > OAuth Server**.
+3. Point its authorization path at your existing signed-in consent page. The
+   page must show the requesting application and requested `email` scope, and
+   call Supabase's approve or deny authorization method.
+4. For a private-first install, create a dedicated **public** OAuth application
+   for this ChatGPT connection (`token_endpoint_auth_method=none`). Keep dynamic
+   client registration disabled unless you deliberately want other MCP clients
+   to be able to register.
+5. Add the exact ChatGPT callback URL shown by the MCP management screen. OAuth
+   redirect URLs are exact; do not use a wildcard.
+
+Set these server variables, using the final approved HTTPS host:
+
+```text
+SUPABASE_AUTH_ISSUER=https://YOUR_PROJECT_REF.supabase.co/auth/v1
+STORY_DESK_RESOURCE_URL=https://YOUR_APPROVED_HOST/api/mcp
+```
+
+Story Desk validates every access token's JWKS signature, issuer, expiration,
+audience, Supabase subject and OAuth client ID. Configure a Supabase Custom
+Access Token Hook so tokens for the dedicated ChatGPT OAuth application use the
+exact `STORY_DESK_RESOURCE_URL` as `aud`. If the project already has a custom
+access-token hook, add this branch to it rather than replacing it:
+
+```sql
+-- Replace both placeholders before installing this as the project's
+-- Custom Access Token Hook.
+create or replace function public.story_desk_access_token_hook(event jsonb)
+returns jsonb
+language plpgsql
+stable
+as $$
+declare
+  claims jsonb := event->'claims';
+begin
+  if event->>'client_id' = 'CHATGPT_OAUTH_CLIENT_ID' then
+    claims := jsonb_set(
+      claims,
+      '{aud}',
+      to_jsonb('https://YOUR_APPROVED_HOST/api/mcp'::text)
+    );
+  end if;
+  return jsonb_build_object('claims', claims);
+end;
+$$;
+
+grant execute on function public.story_desk_access_token_hook(jsonb)
+  to supabase_auth_admin;
+revoke execute on function public.story_desk_access_token_hook(jsonb)
+  from authenticated, anon, public;
+```
+
+After Supabase has issued or refreshed a token, enroll only the intended user
+and dedicated OAuth client. `auth_subject` is the user's `auth.users.id` and
+`oauth_client_id` is the public OAuth application's client ID:
+
+```sql
+insert into story_desk_client_identities
+  (id, client_id, auth_subject, oauth_client_id)
+values
+  (gen_random_uuid()::text, 'client_slug', 'SUPABASE_USER_UUID', 'CHATGPT_OAUTH_CLIENT_ID');
+```
+
+This two-part mapping prevents a valid user token obtained by a different OAuth
+application from selecting a Story Desk tenant.
+
+## 3. Mount the verified Alex source
+
+Unpack the approved Minimal OS archive outside this repository. Mount the
+result into the runtime read-only and set:
+
+```text
+ALEX_SOURCE_ROOT=/opt/alex-source/minimal-os
+STORY_DESK_CONTRACT_ROOT=/app/story-desk/contracts
+```
+
+Every job verifies every file in the source `MANIFEST.json` before loading the
+complete orchestrator, Story Commissioner, Content Strategist, Editorial Gate
+and Editorial Voice files. The separately versioned Story Desk commissioning
+contract is also verified. A mismatch halts the job with
+`source_integrity_failed`.
+
+## 4. Configure Box
+
+Create one server-side Box application using Client Credentials Grant and its
+service account. Set `BOX_CLIENT_ID`, `BOX_CLIENT_SECRET` and
+`BOX_ENTERPRISE_ID` as deployment secrets. Share either a studio-owned or
+client-owned folder with the service account, then save only that folder's ID on
+the authenticated tenant record.
+
+The folder must contain:
+
+- `brand-voice.md`
+- `content-pillars.md`
+- `audience-personas.md`
+
+It may also contain `style-guide.md`, `competitive-landscape.md` and
+`standing_orders.md`.
+
+Box is a context source and review-copy destination. PostgreSQL remains the
+source of truth; editing an exported file does not create a revision or approve
+a brief. Export receipts are committed one file at a time, so a later Box error
+does not erase the audit trail for review copies already created.
+
+## 5. Connect privately in ChatGPT
+
+After deployment to an approved host with stable HTTPS:
+
+1. Enable ChatGPT developer mode under **Settings > Security**.
+2. Add `https://YOUR_APPROVED_HOST/api/mcp` as a Streamable HTTP MCP server.
+3. Select OAuth and use the dedicated Supabase public OAuth client ID. Do not
+   configure a static API key or client secret.
+4. Complete Supabase sign-in and consent as the enrolled user.
+5. Test initialization, all four operations, invalid inputs, stale brief hashes,
+   and cross-tenant access before sharing the installation.
+
+Before connecting ChatGPT, verify that both URLs return successful JSON and that
+the authorization-server issuer exactly matches the protected-resource record:
+
+```text
+https://YOUR_APPROVED_HOST/.well-known/oauth-protected-resource
+https://YOUR_PROJECT_REF.supabase.co/.well-known/oauth-authorization-server/auth/v1
+```
+
+No deployment is performed by this repository change. VPS deployment is not
+part of the Story Desk V.1 setup. Fly.io or Sprites can be evaluated separately
+once their project identifiers, secret configuration and desired host are
+provided.

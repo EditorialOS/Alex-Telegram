@@ -1,0 +1,11 @@
+{
+  "contract_version": "1.0.0",
+  "source_os_version": "2.0.0",
+  "source_editorial_gate_version": "1.1.0",
+  "files": [
+    {
+      "path": "editorial-gate-story-desk-v1.md",
+      "sha256": "98e8a1fbb9ca8a5b60391d85105f730c919aabd8797e6c7022c283beeade04ce"
+    }
+  ]
+}

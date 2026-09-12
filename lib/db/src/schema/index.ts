@@ -22,3 +22,4 @@ export * from "./messages.js";
 export * from "./tenants.js";
 export * from "./tenantFiles.js";
 export * from "./telegramTenants.js";
+export * from "./storyDesk.js";

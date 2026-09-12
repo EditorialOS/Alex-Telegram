@@ -1,5 +1,10 @@
 # Alex — Multi-Tenant Editorial AI for Slack
 
+> The repository also contains the private-first **Alex Story Desk V.1** MCP
+> surface. See [`docs/story-desk-private-chatgpt.md`](docs/story-desk-private-chatgpt.md)
+> for its Supabase, verified-source, Box and ChatGPT setup. Story Desk does not
+> change the existing Slack or Telegram routines.
+
 Alex is a multi-tenant editorial AI teammate that lives in Slack. A workspace installs
 Alex via **"Add to Slack"** (OAuth), spends a couple of minutes teaching it their brand
 voice, then generates on-brand editorial content directly from slash commands
