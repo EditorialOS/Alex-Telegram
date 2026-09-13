@@ -5,6 +5,7 @@ import slackOauthRouter from "./slackOauth.js";
 import telegramRouter from "./telegram.js";
 import adminRouter from "./admin.js";
 import storyDeskMcpRouter from "./storyDeskMcp.js";
+import storyDeskOauthRouter from "./storyDeskOauth.js";
 
 const router: IRouter = Router();
 
@@ -14,5 +15,6 @@ router.use(slackOauthRouter);
 router.use(slackRouter);
 router.use(telegramRouter);
 router.use(storyDeskMcpRouter);
+router.use(storyDeskOauthRouter);
 
 export default router;

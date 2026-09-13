@@ -118,6 +118,16 @@ globalThis.__dirname = __bannerPath.dirname(globalThis.__filename);
     `,
     },
   });
+
+  await esbuild({
+    entryPoints: [path.resolve(artifactDir, "src/browser/oauth.ts")],
+    platform: "browser",
+    bundle: true,
+    format: "esm",
+    outfile: path.resolve(distDir, "oauth.mjs"),
+    logLevel: "info",
+    sourcemap: "linked",
+  });
 }
 
 buildAll().catch((err) => {
