@@ -34,7 +34,11 @@ async function loadClient(): Promise<SupabaseClient> {
   if (!response.ok) throw new Error("Alex sign-in is not configured yet.");
   const config = await response.json() as AuthConfig;
   return createClient(config.url, config.publishableKey, {
-    auth: { flowType: "pkce", persistSession: true, detectSessionInUrl: true },
+    // Magic links are commonly opened from a mail client into a different
+    // browser context. The implicit flow keeps the one-time link portable;
+    // ChatGPT's separate OAuth exchange still uses PKCE at the authorization
+    // server boundary.
+    auth: { flowType: "implicit", persistSession: true, detectSessionInUrl: true },
   });
 }
 
@@ -79,9 +83,11 @@ async function renderLogin(client: SupabaseClient): Promise<void> {
     event.preventDefault();
     const form = new FormData(event.currentTarget as HTMLFormElement);
     localStorage.setItem("alex-oauth-next", next);
+    const callback = new URL("/api/story-desk/oauth/callback", location.origin);
+    callback.searchParams.set("next", next);
     const { error } = await client.auth.signInWithOtp({
       email: String(form.get("email") ?? ""),
-      options: { emailRedirectTo: `${location.origin}/api/story-desk/oauth/callback` },
+      options: { emailRedirectTo: callback.toString() },
     });
     if (error) return showError(error);
     const status = document.querySelector<HTMLElement>("#status");
@@ -94,7 +100,8 @@ async function renderCallback(client: SupabaseClient): Promise<void> {
   const { data: { session }, error } = await client.auth.getSession();
   if (error) return showError(error);
   if (!session) return showError(new Error("The sign-in link is invalid or expired."));
-  const next = safeNext(localStorage.getItem("alex-oauth-next"));
+  const callbackNext = new URLSearchParams(location.search).get("next");
+  const next = safeNext(callbackNext ?? localStorage.getItem("alex-oauth-next"));
   localStorage.removeItem("alex-oauth-next");
   location.replace(next);
 }
