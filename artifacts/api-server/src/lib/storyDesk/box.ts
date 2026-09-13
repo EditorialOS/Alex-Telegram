@@ -5,7 +5,6 @@ import {
   type UploadedContextFile,
 } from "./contracts.js";
 import { StoryDeskError } from "./errors.js";
-import type { BoxContextReader } from "./contextResolver.js";
 
 interface BoxTokenResponse {
   access_token?: string;
@@ -50,7 +49,8 @@ function env(name: string): string {
   return value;
 }
 
-export class BoxAdapter implements BoxContextReader, ExportAdapter {
+/** V.2 implementation placeholder. Story Desk V.1 does not instantiate this adapter. */
+export class BoxAdapter implements ExportAdapter {
   private token?: { value: string; expiresAt: number };
   private readonly apiBase = (process.env.BOX_API_BASE_URL ?? "https://api.box.com/2.0").replace(/\/$/, "");
   private readonly uploadBase = (process.env.BOX_UPLOAD_BASE_URL ?? "https://upload.box.com/api/2.0").replace(/\/$/, "");

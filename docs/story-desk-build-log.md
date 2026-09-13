@@ -30,7 +30,9 @@ supplement; the rubric is not duplicated in application code.
 - Context API is not used as Story Desk job storage.
 - Uploaded context accepts content bytes only; paths and arbitrary URLs are not
   part of the contract.
-- Box uses one server-side Client Credentials service account.
+- V.1 uses uploaded context and one-hour signed inline downloads.
+- Box context sync and review-copy export are deferred to V.2; the dormant
+  adapter and schema groundwork remain but are not runtime requirements.
 - Brief structure is checked before scoring.
 - Editorial Gate runs exactly once per complete brief.
 - The runtime derives disposition from the five validated 1–5 scores.
@@ -43,6 +45,6 @@ supplement; the rubric is not duplicated in application code.
 
 ## Deployment status
 
-Not deployed. VPS deployment was explicitly excluded. Live Box collaboration,
-Supabase migration and private ChatGPT connection remain operator steps because
-their credentials and target-host configuration were not supplied.
+VPS deployment remains explicitly excluded. The dedicated Supabase staging
+schema has been applied and the Fly staging app has been created. Private
+ChatGPT OAuth setup, Fly staging verification and production promotion remain.

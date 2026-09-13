@@ -11,8 +11,8 @@ import type {
   OpportunityBoard,
   StoryDeskGateReport,
 } from "./contracts.js";
-import type { ExportAdapter, ExportArtifact } from "./box.js";
 import { ContextResolver } from "./contextResolver.js";
+import { StoryDeskDownloadSigner, type DeliverableDownload } from "./downloads.js";
 import { asStoryDeskError, StoryDeskError } from "./errors.js";
 import type { StoryDeskStore } from "./store.js";
 import { VerifiedSkillLoader } from "./sourceBundle.js";
@@ -30,10 +30,6 @@ function stable(value: unknown): string {
 
 function sha256(value: string): string {
   return createHash("sha256").update(value, "utf8").digest("hex");
-}
-
-function slug(value: string): string {
-  return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 64) || "story-desk";
 }
 
 function renderBoard(
@@ -72,7 +68,7 @@ function renderBoard(
 
 export interface CreateBoardResult {
   job: JobStatus;
-  board?: OpportunityBoard;
+  board?: OpportunityBoard & { downloads: DeliverableDownload[] };
   idempotentReplay: boolean;
 }
 
@@ -81,20 +77,20 @@ export class StoryDeskService {
   private readonly contextResolver: ContextResolver;
   private readonly skillLoader: { load(): ReturnType<VerifiedSkillLoader["load"]> };
   private readonly workers: StoryDeskWorkers;
-  private readonly exporter?: ExportAdapter;
+  private readonly downloads: StoryDeskDownloadSigner;
 
   constructor(
     store: StoryDeskStore,
     contextResolver: ContextResolver,
     skillLoader: { load(): ReturnType<VerifiedSkillLoader["load"]> },
     workers: StoryDeskWorkers,
-    exporter?: ExportAdapter,
+    downloads: StoryDeskDownloadSigner,
   ) {
     this.store = store;
     this.contextResolver = contextResolver;
     this.skillLoader = skillLoader;
     this.workers = workers;
-    this.exporter = exporter;
+    this.downloads = downloads;
   }
 
   async createOpportunityBoard(
@@ -104,10 +100,10 @@ export class StoryDeskService {
     const goal = input.goal?.trim();
     const key = input.idempotency_key?.trim();
     if (!goal || !key) throw new StoryDeskError("invalid_request", "goal and idempotency_key are required.");
-    if (!input.context_source || !["uploaded_files", "connected_box"].includes(input.context_source.type)) {
+    if (!input.context_source || input.context_source.type !== "uploaded_files") {
       throw new StoryDeskError(
         "unsupported_context_transport",
-        "Context must be supplied as uploaded UTF-8 contents or through the authenticated client's Box folder.",
+        "Context must be supplied as uploaded UTF-8 contents. Connected Box context is deferred to V.2.",
         400,
       );
     }
@@ -128,14 +124,22 @@ export class StoryDeskService {
     const job = created.job;
     const existingBoard = await this.store.getBoard(client.id, job.id);
     if (job.state === "completed" && existingBoard) {
-      return { job: this.status(job, existingBoard.id), board: existingBoard, idempotentReplay: true };
+      return {
+        job: this.status(job, existingBoard.id),
+        board: this.withDownloads(client.id, existingBoard),
+        idempotentReplay: true,
+      };
     }
 
     try {
       const board = existingBoard ?? await this.runJob(client, job, input, constraints);
-      if (existingBoard) await this.exportAndComplete(client, job.id, existingBoard);
+      if (existingBoard) await this.complete(client.id, job.id, existingBoard);
       const finalJob = await this.requireJob(client.id, job.id);
-      return { job: this.status(finalJob, board.id), board, idempotentReplay: created.existing };
+      return {
+        job: this.status(finalJob, board.id),
+        board: this.withDownloads(client.id, board),
+        idempotentReplay: created.existing,
+      };
     } catch (error) {
       const storyError = asStoryDeskError(error);
       const state = storyError.code === "needs_context" ? "needs_context" : "failed";
@@ -160,7 +164,7 @@ export class StoryDeskService {
     let context = await this.store.getContextSnapshot(client.id, job.id);
     if (!context) {
       await this.transition(client.id, job.id, "resolving_context");
-      context = await this.contextResolver.resolve(client, input.context_source);
+      context = await this.contextResolver.resolve(input.context_source);
       const snapshotId = await this.store.saveContextSnapshot(client.id, job.id, context);
       await this.store.updateJob(client.id, job.id, "resolving_context", { contextSnapshotId: snapshotId });
       await this.store.appendEvent(client.id, job.id, "context_snapshotted", {
@@ -215,80 +219,32 @@ export class StoryDeskService {
       gateReports: reports,
       body,
       contentHash: sha256(body),
-      boxFolderUrl: client.boxFolderId ? `https://app.box.com/folder/${client.boxFolderId}` : undefined,
     };
     await this.store.saveBoard(client.id, board);
     await this.store.appendEvent(client.id, job.id, "artifacts_persisted", {
       board_id: board.id,
       brief_count: briefs.length,
     });
-    await this.exportAndComplete(client, job.id, board);
+    await this.complete(client.id, job.id, board);
     return board;
   }
 
-  private async exportAndComplete(client: ClientRecord, jobId: string, board: OpportunityBoard): Promise<void> {
-    await this.transition(client.id, jobId, "exporting_to_box");
-    if (!client.boxFolderId || !this.exporter) {
-      await this.store.appendEvent(client.id, jobId, "box_export_skipped", { code: "box_not_configured" });
-      await this.store.updateJob(client.id, jobId, "completed", {
-        errorCode: "box_not_configured",
-        errorDetails: { persisted: true },
-      });
-      return;
-    }
-    const artifacts: ExportArtifact[] = [
-      {
-        artifactType: "opportunity_board",
-        artifactId: board.id,
-        version: 1,
-        contentHash: board.contentHash,
-        filename: `${slug(board.title)}-${jobId.slice(0, 8)}.md`,
-        body: board.body,
-      },
-      ...board.briefs.map((brief) => ({
-        artifactType: "brief" as const,
-        artifactId: brief.briefId,
-        version: brief.version,
-        contentHash: brief.contentHash,
-        filename: `${slug(brief.fields.title)}-${jobId.slice(0, 8)}-v${brief.version}.md`,
-        body: brief.body,
-      })),
-    ];
-    try {
-      let exported = 0;
-      for (const artifact of artifacts) {
-        if (await this.store.hasExportReceipt(client.id, jobId, artifact)) continue;
-        const receipts = await this.exporter.export(client, jobId, [artifact]);
-        if (receipts.length !== 1) {
-          throw new StoryDeskError("box_export_failed", "Box returned an unexpected export receipt count.", 502, {
-            artifact_id: artifact.artifactId,
-          });
-        }
-        await this.store.saveExportReceipts(client.id, jobId, receipts);
-        exported += 1;
-      }
-      await this.store.appendEvent(client.id, jobId, "box_export_completed", {
-        exported,
-        total: artifacts.length,
-      });
-      await this.store.updateJob(client.id, jobId, "completed");
-    } catch (error) {
-      const storyError = asStoryDeskError(error);
-      await this.store.appendEvent(client.id, jobId, "box_export_failed", {
-        code: storyError.code,
-        details: storyError.details ?? {},
-      });
-      await this.store.updateJob(client.id, jobId, "completed", {
-        errorCode: "box_export_failed",
-        errorDetails: { persisted: true },
-      });
-    }
+  private async complete(clientId: string, jobId: string, board: OpportunityBoard): Promise<void> {
+    const links = this.downloads.createLinks(clientId, board);
+    await this.store.appendEvent(clientId, jobId, "inline_downloads_ready", {
+      count: links.length,
+      expires_at: links[0]?.expiresAt,
+    });
+    await this.store.updateJob(clientId, jobId, "completed");
   }
 
-  async getOpportunityBoard(client: ClientRecord, jobId: string): Promise<OpportunityBoard> {
+  async getOpportunityBoard(
+    client: ClientRecord,
+    jobId: string,
+  ): Promise<OpportunityBoard & { downloads: DeliverableDownload[] }> {
     const board = await this.store.getBoard(client.id, jobId);
     if (!board) throw new StoryDeskError("not_found", "Opportunity board not found.", 404);
-    return board;
+    return this.withDownloads(client.id, board);
   }
 
   async approveBriefs(client: ClientRecord, actorId: string, input: ApproveBriefsInput): Promise<{ recorded: number }> {
@@ -329,5 +285,12 @@ export class StoryDeskService {
       boardId,
       updatedAt: job.updatedAt.toISOString(),
     };
+  }
+
+  private withDownloads(
+    clientId: string,
+    board: OpportunityBoard,
+  ): OpportunityBoard & { downloads: DeliverableDownload[] } {
+    return { ...board, downloads: this.downloads.createLinks(clientId, board) };
   }
 }

@@ -2,8 +2,9 @@
 
 > The repository also contains the private-first **Alex Story Desk V.1** MCP
 > surface. See [`docs/story-desk-private-chatgpt.md`](docs/story-desk-private-chatgpt.md)
-> for its Supabase, verified-source, Box and ChatGPT setup. Story Desk does not
-> change the existing Slack or Telegram routines.
+> for its Supabase, verified-source, inline-download and ChatGPT setup. Box is
+> deferred to Story Desk V.2. Story Desk does not change the existing Slack or
+> Telegram routines.
 
 Alex is a multi-tenant editorial AI teammate that lives in Slack. A workspace installs
 Alex via **"Add to Slack"** (OAuth), spends a couple of minutes teaching it their brand
@@ -188,6 +189,7 @@ Secrets are **not** committed to this repository. To run Alex you must provide:
 | `CONTEXT_API_KEY`       | Auth for the external Context API (conversation memory)       |
 | `OPERATOR_PASSWORD`     | HTTP Basic Auth password for the operator dashboard           |
 | `ANTHROPIC_API_KEY`     | AI content generation (or a managed AI-integration equivalent)|
+| `STORY_DESK_DOWNLOAD_SECRET` | Signs one-hour Story Desk deliverable download links     |
 
 **Slack bot scopes:** `commands`, `chat:write`, `users:read`. Changing scopes requires
 reinstalling Alex in each workspace.

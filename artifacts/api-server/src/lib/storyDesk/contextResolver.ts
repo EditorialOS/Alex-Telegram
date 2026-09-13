@@ -2,7 +2,6 @@ import { createHash } from "node:crypto";
 import {
   CONTEXT_FILE_NAMES,
   REQUIRED_CONTEXT_FILE_NAMES,
-  type ClientRecord,
   type ContextFileName,
   type ContextSourceRequest,
   type NormalizedContext,
@@ -15,11 +14,6 @@ const MAX_FILE_BYTES = 256 * 1024;
 const MAX_TOTAL_BYTES = 1024 * 1024;
 const ALLOWED_MEDIA_TYPES = new Set(["text/markdown", "text/plain"]);
 const ALLOWED_NAMES = new Set<string>(CONTEXT_FILE_NAMES);
-
-export interface BoxContextReader {
-  readContextFiles(folderId: string): Promise<UploadedContextFile[]>;
-  verifyFolderAccess(folderId: string): Promise<void>;
-}
 
 function byteLength(value: string): number {
   return Buffer.byteLength(value, "utf8");
@@ -96,21 +90,7 @@ export function resolveUploadedFiles(input: UploadedContextFile[]): NormalizedCo
 }
 
 export class ContextResolver {
-  private readonly box?: BoxContextReader;
-
-  constructor(box?: BoxContextReader) {
-    this.box = box;
-  }
-
-  async resolve(client: ClientRecord, source: ContextSourceRequest): Promise<NormalizedContext> {
-    if (source.type === "uploaded_files") return resolveUploadedFiles(source.files);
-    if (!client.boxFolderId) {
-      throw new StoryDeskError("box_not_configured", "The authenticated client has no Box folder configured.", 422);
-    }
-    if (!this.box) {
-      throw new StoryDeskError("box_not_configured", "Box credentials are not configured on the server.", 500);
-    }
-    await this.box.verifyFolderAccess(client.boxFolderId);
-    return resolveUploadedFiles(await this.box.readContextFiles(client.boxFolderId));
+  async resolve(source: ContextSourceRequest): Promise<NormalizedContext> {
+    return resolveUploadedFiles(source.files);
   }
 }

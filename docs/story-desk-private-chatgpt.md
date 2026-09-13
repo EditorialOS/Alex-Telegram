@@ -11,19 +11,20 @@ Story Desk exposes one OAuth-protected Streamable HTTP MCP endpoint at
 - `alex.get_job_status`
 
 Every operation derives the tenant from a verified Supabase OAuth access token.
-A client ID, user ID or Box folder ID supplied in a tool request is never
-trusted or accepted.
+A client ID or user ID supplied in a tool request is never trusted or accepted.
+V.1 accepts uploaded context contents and returns inline deliverable downloads;
+the Box integration is deferred to V.2.
 
 ## 1. Apply the Supabase schema
 
 Run `lib/db/migrations/0001_story_desk_v1.sql` in the Supabase SQL editor or
 with `psql`. Existing Slack and Telegram tables are unchanged.
 
-Create the tenant record. The Box folder ID is server-owned configuration:
+Create the tenant record:
 
 ```sql
-insert into story_desk_clients (id, name, box_folder_id)
-values ('client_slug', 'Client name', 'box_folder_id');
+insert into story_desk_clients (id, name)
+values ('client_slug', 'Client name');
 ```
 
 ## 2. Configure Supabase Auth as the OAuth 2.1 server
@@ -113,27 +114,33 @@ and Editorial Voice files. The separately versioned Story Desk commissioning
 contract is also verified. A mismatch halts the job with
 `source_integrity_failed`.
 
-## 4. Configure Box
+## 4. Configure inline downloads
 
-Create one server-side Box application using Client Credentials Grant and its
-service account. Set `BOX_CLIENT_ID`, `BOX_CLIENT_SECRET` and
-`BOX_ENTERPRISE_ID` as deployment secrets. Share either a studio-owned or
-client-owned folder with the service account, then save only that folder's ID on
-the authenticated tenant record.
+Set a deployment-only `STORY_DESK_DOWNLOAD_SECRET` containing at least 32 random
+characters. Do not commit it. Story Desk signs one-hour download URLs for the
+opportunity board and each brief. The MCP result includes both Markdown links
+and `resource_link` content blocks so ChatGPT can show the files inline.
 
-The folder must contain:
+V.1 context must be uploaded as UTF-8 text in the tool request. The required
+filenames are:
 
 - `brand-voice.md`
 - `content-pillars.md`
 - `audience-personas.md`
 
-It may also contain `style-guide.md`, `competitive-landscape.md` and
+Uploads may also contain `style-guide.md`, `competitive-landscape.md` and
 `standing_orders.md`.
 
-Box is a context source and review-copy destination. PostgreSQL remains the
-source of truth; editing an exported file does not create a revision or approve
-a brief. Export receipts are committed one file at a time, so a later Box error
-does not erase the audit trail for review copies already created.
+PostgreSQL remains the source of truth. Download URLs are tenant-bound,
+tamper-resistant bearer links and expire after one hour. Asking Alex to retrieve
+the board again produces fresh links. The app sends downloads as attachments
+with `no-store` caching.
+
+### Deferred to V.2: Box
+
+Box context sync and review-copy exports are not V.1 launch requirements. The
+existing Box adapter and database fields are retained as dormant V.2 groundwork,
+but the V.1 runtime does not instantiate the adapter or require `BOX_*` secrets.
 
 ## 5. Connect privately in ChatGPT
 
@@ -144,8 +151,9 @@ After deployment to an approved host with stable HTTPS:
 3. Select OAuth and use the dedicated Supabase public OAuth client ID. Do not
    configure a static API key or client secret.
 4. Complete Supabase sign-in and consent as the enrolled user.
-5. Test initialization, all four operations, invalid inputs, stale brief hashes,
-   and cross-tenant access before sharing the installation.
+5. Test initialization, all four operations, inline downloads, expired or
+   tampered links, invalid inputs, stale brief hashes, and cross-tenant access
+   before sharing the installation.
 
 Before connecting ChatGPT, verify that both URLs return successful JSON and that
 the authorization-server issuer exactly matches the protected-resource record:

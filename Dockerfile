@@ -11,6 +11,7 @@ COPY . .
 # --no-frozen-lockfile: the committed lockfile's overrides section can mismatch
 # the pnpm version in this image; let install reconcile rather than hard-fail.
 RUN pnpm install --no-frozen-lockfile
+RUN pnpm --filter @workspace/api-server test
 RUN pnpm --filter @workspace/api-server build
 
 # ---- runtime: just the self-contained bundle (same artifact Replit runs) ----

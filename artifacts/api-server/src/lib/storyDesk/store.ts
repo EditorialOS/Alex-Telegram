@@ -13,7 +13,7 @@ export interface NewJob {
   goal: string;
   requestHash: string;
   idempotencyKey: string;
-  contextSourceType: "uploaded_files" | "connected_box";
+  contextSourceType: "uploaded_files";
   constraints: Record<string, unknown>;
 }
 

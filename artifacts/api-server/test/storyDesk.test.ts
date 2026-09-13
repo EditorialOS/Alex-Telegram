@@ -8,6 +8,7 @@ import {
   resolveUploadedFiles,
 } from "../src/lib/storyDesk/contextResolver.ts";
 import { StoryDeskError } from "../src/lib/storyDesk/errors.ts";
+import { StoryDeskDownloadSigner } from "../src/lib/storyDesk/downloads.ts";
 import { dispositionFor, StoryDeskWorkers, type StoryDeskModel } from "../src/lib/storyDesk/workers.ts";
 import { StoryDeskService } from "../src/lib/storyDesk/service.ts";
 import { storyDeskResourceMetadata } from "../src/lib/storyDesk/auth.ts";
@@ -27,6 +28,14 @@ import type { VerifiedSkills } from "../src/lib/storyDesk/sourceBundle.ts";
 
 const clientA: ClientRecord = { id: "client-a", name: "Client A", boxFolderId: "box-a" };
 const clientB: ClientRecord = { id: "client-b", name: "Client B", boxFolderId: "box-b" };
+
+function downloadSigner(ttlSeconds = 3600): StoryDeskDownloadSigner {
+  return new StoryDeskDownloadSigner({
+    secret: "test-download-secret-that-is-long-enough-for-production",
+    origin: "https://story.example.com",
+    ttlSeconds,
+  });
+}
 
 const sourceSkills: VerifiedSkills = {
   osVersion: "2.0.0",
@@ -358,21 +367,32 @@ test("commissioning Gate threshold boundaries are deterministic", () => {
   assert.equal(dispositionFor(25), "ready_to_commission");
 });
 
-test("connected Box context always uses the authenticated client's configured folder", async () => {
-  const calls: string[] = [];
-  const resolver = new ContextResolver({
-    async verifyFolderAccess(folderId: string) { calls.push(`verify:${folderId}`); },
-    async readContextFiles(folderId: string) {
-      calls.push(`read:${folderId}`);
-      return contextFiles();
-    },
-  });
-  await resolver.resolve(clientA, { type: "connected_box" });
-  await resolver.resolve(clientB, { type: "connected_box" });
-  assert.deepEqual(calls, [
-    "verify:box-a", "read:box-a",
-    "verify:box-b", "read:box-b",
-  ]);
+test("inline download links are signed, tenant-bound and expire", () => {
+  const signer = downloadSigner(60);
+  const now = Date.parse("2026-09-12T20:00:00.000Z");
+  const board: OpportunityBoard = {
+    id: "board-a",
+    jobId: "job-a",
+    title: "Alex Story Desk — Launch",
+    opportunities: [],
+    briefs: [],
+    gateReports: [],
+    body: "# Board\n",
+    contentHash: "a".repeat(64),
+  };
+  const [link] = signer.createLinks(clientA.id, board, now);
+  const url = new URL(link.url);
+  const payload = signer.verify(url.searchParams.get("token") ?? undefined, url.searchParams.get("signature") ?? undefined, now);
+  assert.equal(payload.clientId, clientA.id);
+  assert.equal(payload.jobId, board.jobId);
+  assert.throws(
+    () => signer.verify(url.searchParams.get("token") ?? undefined, "tampered", now),
+    (error: unknown) => error instanceof StoryDeskError && error.code === "invalid_download",
+  );
+  assert.throws(
+    () => signer.verify(url.searchParams.get("token") ?? undefined, url.searchParams.get("signature") ?? undefined, now + 61_000),
+    (error: unknown) => error instanceof StoryDeskError && error.code === "download_expired",
+  );
 });
 
 test("end-to-end service is idempotent, tenant-isolated and version-binds decisions", async () => {
@@ -387,13 +407,12 @@ test("end-to-end service is idempotent, tenant-isolated and version-binds decisi
     gatePayload(4),
   ]);
   const store = new MemoryStore();
-  const exporter = new FakeExporter();
   const service = new StoryDeskService(
     store,
     new ContextResolver(),
     { load: async () => sourceSkills },
     new StoryDeskWorkers(model),
-    exporter,
+    downloadSigner(),
   );
 
   const first = await service.createOpportunityBoard(clientA, createInput());
@@ -402,9 +421,9 @@ test("end-to-end service is idempotent, tenant-isolated and version-binds decisi
   assert.equal(first.board?.briefs.length, 4);
   assert.equal(first.board?.gateReports.length, 4);
   assert.equal(model.calls.filter((call) => call.system.includes("story_desk_commissioning")).length, 4);
-  assert.equal(exporter.calls.length, 5);
-  assert.ok(exporter.calls.every((call) => call.length === 1));
-  assert.ok(exporter.calls.every((call) => call[0].filename.includes(first.job.jobId.slice(0, 8))));
+  assert.equal(first.board?.downloads.length, 5);
+  assert.ok(first.board?.downloads.every((item) => item.url.startsWith("https://story.example.com/api/story-desk/download?")));
+  assert.equal(first.job.error, undefined);
 
   const replay = await service.createOpportunityBoard(clientA, createInput());
   assert.equal(replay.idempotentReplay, true);
@@ -466,6 +485,7 @@ test("an interrupted job resumes from its persisted context snapshot", async () 
     new ContextResolver(),
     { load: async () => { throw new StoryDeskError("source_integrity_failed", "interrupted", 500); } },
     new StoryDeskWorkers(new ScriptedModel([])),
+    downloadSigner(),
   );
   await assert.rejects(failing.createOpportunityBoard(clientA, input));
   const interrupted = [...store.jobs.values()][0];
@@ -483,7 +503,7 @@ test("an interrupted job resumes from its persisted context snapshot", async () 
     new ContextResolver(),
     { load: async () => sourceSkills },
     new StoryDeskWorkers(model),
-    new FakeExporter(),
+    downloadSigner(),
   );
   const result = await resumed.createOpportunityBoard(clientA, input);
   assert.equal(result.job.jobId, interrupted.id);

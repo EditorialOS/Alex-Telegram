@@ -5,23 +5,39 @@ import { STORY_DESK_OAUTH_SCOPES } from "./auth.js";
 import { asStoryDeskError } from "./errors.js";
 import type { StoryDeskService } from "./service.js";
 
-const contextSourceSchema = z.discriminatedUnion("type", [
-  z.object({
-    type: z.literal("uploaded_files"),
-    files: z.array(z.object({
-      name: z.string(),
-      media_type: z.enum(["text/markdown", "text/plain"]),
-      content_utf8: z.string(),
-    })).max(6),
-  }),
-  z.object({ type: z.literal("connected_box") }),
-]);
+const contextSourceSchema = z.object({
+  type: z.literal("uploaded_files"),
+  files: z.array(z.object({
+    name: z.string(),
+    media_type: z.enum(["text/markdown", "text/plain"]),
+    content_utf8: z.string(),
+  })).max(6),
+});
 
-function ok(result: unknown, summary: string) {
+interface DownloadReference {
+  filename: string;
+  url: string;
+}
+
+function ok(result: unknown, summary: string, downloads: DownloadReference[] = []) {
   return {
     structuredContent: { result },
-    content: [{ type: "text" as const, text: summary }],
+    content: [
+      { type: "text" as const, text: summary },
+      ...downloads.map((item) => ({
+        type: "resource_link" as const,
+        uri: item.url,
+        name: item.filename,
+        description: `Download ${item.filename}. This private link expires in one hour.`,
+        mimeType: "text/markdown",
+      })),
+    ],
   };
+}
+
+function downloadSummary(downloads: Array<{ filename: string; url: string }> | undefined): string {
+  if (!downloads?.length) return "";
+  return `\n\nDownloads:\n${downloads.map((item) => `- [${item.filename}](${item.url})`).join("\n")}`;
 }
 
 function fail(error: unknown) {
@@ -48,7 +64,7 @@ export function buildStoryDeskMcpServer(service: StoryDeskService, client: Clien
     {
       title: "Create an Alex opportunity board",
       description:
-        "Turn an editorial or business goal into 8–10 ranked story opportunities and 4–6 gated commission briefs. Use explicit uploaded UTF-8 context contents or the authenticated client's connected Box context.",
+        "Turn an editorial or business goal into 8–10 ranked story opportunities and 4–6 gated commission briefs. Supply explicit uploaded UTF-8 context contents. The result includes short-lived inline download links.",
       inputSchema: {
         goal: z.string().min(1),
         idempotency_key: z.string().min(1).max(200),
@@ -64,7 +80,12 @@ export function buildStoryDeskMcpServer(service: StoryDeskService, client: Clien
     async (args) => {
       try {
         const result = await service.createOpportunityBoard(client, args as CreateOpportunityBoardInput);
-        return ok(result, `Opportunity board job ${result.job.jobId} is ${result.job.state}.`);
+        return ok(
+          result,
+          `Opportunity board job ${result.job.jobId} is ${result.job.state}.` +
+            downloadSummary(result.board?.downloads),
+          result.board?.downloads,
+        );
       } catch (error) {
         return fail(error);
       }
@@ -84,7 +105,11 @@ export function buildStoryDeskMcpServer(service: StoryDeskService, client: Clien
     async ({ job_id }) => {
       try {
         const result = await service.getOpportunityBoard(client, job_id);
-        return ok(result, `Retrieved opportunity board ${result.id}.`);
+        return ok(
+          result,
+          `Retrieved opportunity board ${result.id}.` + downloadSummary(result.downloads),
+          result.downloads,
+        );
       } catch (error) {
         return fail(error);
       }

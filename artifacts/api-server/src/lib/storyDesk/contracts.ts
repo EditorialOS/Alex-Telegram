@@ -21,9 +21,7 @@ export interface UploadedContextFile {
   content_utf8: string;
 }
 
-export type ContextSourceRequest =
-  | { type: "uploaded_files"; files: UploadedContextFile[] }
-  | { type: "connected_box" };
+export type ContextSourceRequest = { type: "uploaded_files"; files: UploadedContextFile[] };
 
 export interface CreateOpportunityBoardInput {
   goal: string;
@@ -58,7 +56,6 @@ export type JobState =
   | "developing_briefs"
   | "evaluating_briefs"
   | "persisting_artifacts"
-  | "exporting_to_box"
   | "completed"
   | "needs_context"
   | "failed";
@@ -159,7 +156,6 @@ export interface OpportunityBoard {
   gateReports: StoryDeskGateReport[];
   body: string;
   contentHash: string;
-  boxFolderUrl?: string;
 }
 
 export interface JobRecord {
