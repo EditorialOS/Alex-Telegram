@@ -1,0 +1,10 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "express",
+  "functions": {
+    "server.ts": {
+      "includeFiles": "{sources/minimal-os/2.1.0/**,story-desk/contracts/**}",
+      "maxDuration": 300
+    }
+  }
+}

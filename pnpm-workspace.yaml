@@ -75,9 +75,8 @@ onlyBuiltDependencies:
   - unrs-resolver
 
 overrides:
-  # replit uses linux-x64 only, we can exclude all other platforms
-  "esbuild>@esbuild/darwin-arm64": "-"
-  "esbuild>@esbuild/darwin-x64": "-"
+  # Keep the local macOS binaries and Vercel's linux-x64 binary available;
+  # exclude only platforms this repository does not target.
   "esbuild>@esbuild/freebsd-arm64": "-"
   "esbuild>@esbuild/freebsd-x64": "-"
   "esbuild>@esbuild/linux-arm": "-"
@@ -158,3 +157,9 @@ overrides:
   # drizzle-kit uses esbuild internally on an older version that's vulnerable, this overrides it
   "@esbuild-kit/esm-loader": "npm:tsx@^4.21.0"
   esbuild: "0.27.3"
+
+# pnpm 11 requires an explicit decision for dependency lifecycle scripts.
+# esbuild is already pinned and allow-listed above; permit only its platform
+# binary validation/install step.
+allowBuilds:
+  esbuild: true

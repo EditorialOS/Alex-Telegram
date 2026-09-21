@@ -1,8 +1,6 @@
-import { fileURLToPath } from "node:url";
 import { Router, type IRouter } from "express";
 
 const router: IRouter = Router();
-const oauthScriptPath = fileURLToPath(new URL("./oauth.mjs", import.meta.url));
 
 function escapeJson(value: unknown): string {
   return JSON.stringify(value).replace(/</g, "\\u003c");
@@ -48,7 +46,7 @@ function renderPage(page: "login" | "callback" | "consent"): string {
       <h1>${titles[page]}</h1>
       <p>Loading…</p>
     </main>
-    <script type="module" src="/api/story-desk/oauth.js"></script>
+    <script type="module" src="/story-desk/oauth.js"></script>
   </body>
 </html>`;
 }
@@ -62,11 +60,6 @@ router.get("/story-desk/auth-config", (_req, res) => {
   }
   res.setHeader("Cache-Control", "no-store");
   res.type("json").send(escapeJson({ url, publishableKey }));
-});
-
-router.get("/story-desk/oauth.js", (_req, res) => {
-  res.setHeader("Cache-Control", "public, max-age=300");
-  res.type("text/javascript").sendFile(oauthScriptPath);
 });
 
 router.get("/story-desk/login", (_req, res) => {

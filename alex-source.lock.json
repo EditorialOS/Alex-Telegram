@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "source_root": "sources/minimal-os/2.1.0",
+  "os_version": "2.1.0",
+  "bundle": {
+    "filename": "minimal-os-v2.1.0.zip",
+    "sha256": "e5cdf0c9abe656eaa1c059410f2a8fcb3e9d7cf064e0e13af06e19765ec84e0d"
+  },
+  "manifest": {
+    "path": "sources/minimal-os/2.1.0/MANIFEST.json",
+    "sha256": "0f1247bb1fd1905ad0aaecc089a468e32310313b66683cb54e78ab2c3fecdf13"
+  },
+  "authority": [
+    "orchestrator-protocol.md@1.0.0",
+    "alex.md@3.0.0",
+    "skills/story-commissioner.md@1.1.0",
+    "skills/content-strategist.md@1.1.0",
+    "skills/editorial-gate.md@1.1.0",
+    "skills/editorial-voice.md@1.1.0"
+  ]
+}

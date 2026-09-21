@@ -1,0 +1,366 @@
+{
+  "/editorial-calendar": {
+    "skills": [
+      "content-strategist"
+    ],
+    "gate": "full",
+    "model_class": "reasoning",
+    "approval_pause": false,
+    "intents": [
+      "strategy",
+      "pillars",
+      "calendar",
+      "planning",
+      "what should we publish"
+    ]
+  },
+  "/story-brief": {
+    "skills": [
+      "story-commissioner",
+      "editorial-voice"
+    ],
+    "gate": "full",
+    "model_class": "reasoning",
+    "approval_pause": false,
+    "intents": [
+      "brief this",
+      "commission",
+      "assign a story"
+    ]
+  },
+  "/commission-batch": {
+    "skills": [
+      "story-commissioner",
+      "content-strategist"
+    ],
+    "gate": "full",
+    "model_class": "reasoning",
+    "approval_pause": false,
+    "intents": [
+      "story ideas",
+      "idea batch",
+      "next month"
+    ]
+  },
+  "/feature": {
+    "skills": [
+      "editorial-voice",
+      "feature-writer",
+      "editorial-gate"
+    ],
+    "gate": "full",
+    "model_class": "implementation",
+    "approval_pause": false,
+    "intents": [
+      "feature",
+      "long-form",
+      "profile",
+      "magazine"
+    ]
+  },
+  "/blog-post": {
+    "skills": [
+      "editorial-voice",
+      "blog-writer",
+      "editorial-gate",
+      "seo-brief"
+    ],
+    "gate": "full",
+    "model_class": "implementation",
+    "approval_pause": false,
+    "intents": [
+      "blog",
+      "article",
+      "post",
+      "SEO",
+      "web content"
+    ]
+  },
+  "/newsletter": {
+    "skills": [
+      "editorial-voice",
+      "newsletter-writer",
+      "editorial-gate"
+    ],
+    "gate": "full",
+    "model_class": "implementation",
+    "approval_pause": false,
+    "intents": [
+      "newsletter",
+      "edition",
+      "subscriber"
+    ]
+  },
+  "/social-week": {
+    "skills": [
+      "editorial-voice",
+      "social-content",
+      "editorial-gate"
+    ],
+    "gate": "full",
+    "model_class": "implementation",
+    "approval_pause": false,
+    "intents": [
+      "social",
+      "Instagram",
+      "TikTok",
+      "LinkedIn",
+      "Pinterest"
+    ]
+  },
+  "/email-sequence": {
+    "skills": [
+      "editorial-voice",
+      "email-copywriter",
+      "editorial-gate"
+    ],
+    "gate": "full",
+    "model_class": "implementation",
+    "approval_pause": false,
+    "intents": [
+      "email",
+      "sequence",
+      "announcement",
+      "welcome",
+      "nurture"
+    ]
+  },
+  "/video-script": {
+    "skills": [
+      "editorial-voice",
+      "video-scriptwriter",
+      "editorial-gate"
+    ],
+    "gate": "full",
+    "model_class": "implementation",
+    "approval_pause": false,
+    "intents": [
+      "video",
+      "script",
+      "Reel",
+      "brand film",
+      "explainer"
+    ]
+  },
+  "/audio-script": {
+    "skills": [
+      "editorial-voice",
+      "audio-scriptwriter",
+      "editorial-gate"
+    ],
+    "gate": "full",
+    "model_class": "implementation",
+    "approval_pause": false,
+    "intents": [
+      "podcast",
+      "audio",
+      "episode",
+      "briefing"
+    ]
+  },
+  "/campaign-kit": {
+    "skills": [
+      "content-strategist",
+      "channel-briefs",
+      "campaign-producer",
+      "editorial-voice",
+      "editorial-gate"
+    ],
+    "gate": "full",
+    "model_class": "reasoning",
+    "approval_pause": true,
+    "intents": [
+      "campaign",
+      "launch",
+      "tentpole",
+      "seasonal",
+      "package"
+    ]
+  },
+  "/repurpose": {
+    "skills": [
+      "content-repurposer",
+      "editorial-voice",
+      "editorial-gate"
+    ],
+    "gate": "full",
+    "model_class": "implementation",
+    "approval_pause": false,
+    "intents": [
+      "repurpose",
+      "adapt",
+      "turn this into",
+      "cross-channel"
+    ]
+  },
+  "/creative-brief": {
+    "skills": [
+      "creative-brief",
+      "editorial-voice"
+    ],
+    "gate": "full",
+    "model_class": "reasoning",
+    "approval_pause": false,
+    "intents": [
+      "photo direction",
+      "shot list",
+      "mood board",
+      "creative brief"
+    ]
+  },
+  "/content-report": {
+    "skills": [
+      "content-performance"
+    ],
+    "gate": "full",
+    "model_class": "reasoning",
+    "approval_pause": false,
+    "intents": [
+      "performance",
+      "analytics",
+      "what's working",
+      "report"
+    ]
+  },
+  "/voice-guide": {
+    "skills": [
+      "editorial-voice"
+    ],
+    "gate": "none",
+    "model_class": "reasoning",
+    "approval_pause": false,
+    "intents": [
+      "voice",
+      "tone",
+      "brand",
+      "style",
+      "guidelines"
+    ]
+  },
+  "/content-audit": {
+    "skills": [
+      "content-strategist",
+      "content-performance",
+      "seo-brief"
+    ],
+    "gate": "full",
+    "model_class": "reasoning",
+    "approval_pause": false,
+    "intents": [
+      "audit",
+      "review",
+      "assess our content"
+    ]
+  },
+  "/quarterly-review": {
+    "skills": [
+      "content-strategist",
+      "content-performance",
+      "editorial-voice"
+    ],
+    "gate": "full",
+    "model_class": "reasoning",
+    "approval_pause": false,
+    "intents": [
+      "quarterly review",
+      "next quarter",
+      "direction"
+    ]
+  },
+  "/caption": {
+    "skills": [
+      "social-content"
+    ],
+    "gate": "compressed",
+    "model_class": "implementation",
+    "quick_hit": true
+  },
+  "/hook": {
+    "skills": [
+      "social-content"
+    ],
+    "gate": "compressed",
+    "model_class": "implementation",
+    "quick_hit": true
+  },
+  "/headline": {
+    "skills": [
+      "feature-writer or blog-writer"
+    ],
+    "gate": "compressed",
+    "model_class": "implementation",
+    "quick_hit": true
+  },
+  "/subject-line": {
+    "skills": [
+      "newsletter-writer or email-copywriter"
+    ],
+    "gate": "compressed",
+    "model_class": "implementation",
+    "quick_hit": true
+  },
+  "/hashtags": {
+    "skills": [
+      "social-content"
+    ],
+    "gate": "compressed",
+    "model_class": "implementation",
+    "quick_hit": true
+  },
+  "/reply": {
+    "skills": [
+      "social-content"
+    ],
+    "gate": "compressed",
+    "model_class": "implementation",
+    "quick_hit": true
+  },
+  "/trending": {
+    "skills": [
+      "social-content"
+    ],
+    "gate": "compressed",
+    "model_class": "reasoning",
+    "quick_hit": true
+  },
+  "/meta": {
+    "skills": [
+      "seo-brief"
+    ],
+    "gate": "compressed",
+    "model_class": "implementation",
+    "quick_hit": true
+  },
+  "/cta": {
+    "skills": [
+      "email-copywriter"
+    ],
+    "gate": "compressed",
+    "model_class": "implementation",
+    "quick_hit": true
+  },
+  "/outline": {
+    "skills": [
+      "feature-writer or blog-writer"
+    ],
+    "gate": "compressed",
+    "model_class": "reasoning",
+    "quick_hit": true
+  },
+  "/angle": {
+    "skills": [
+      "story-commissioner"
+    ],
+    "gate": "compressed",
+    "model_class": "reasoning",
+    "quick_hit": true
+  },
+  "/pipeline": {
+    "skills": [
+      "story-commissioner"
+    ],
+    "gate": "compressed",
+    "model_class": "reasoning",
+    "quick_hit": true
+  }
+}

@@ -1,25 +1,26 @@
-# Alex API server — portable container. Builds the pnpm workspace and runs the
-# self-contained esbuild bundle. Runs identically on Railway, a VPS, Fly, Render,
-# Cloud Run, or locally. Config is entirely via environment variables.
+# Alex Core local/CI parity container. Vercel is the production target.
+# The image includes the manifest-verified, vendored Alex source; Eve is not a
+# runtime dependency.
 # syntax=docker/dockerfile:1
 
-# ---- build: install workspace deps and bundle the server ----
-FROM node:22-bookworm-slim AS build
-RUN corepack enable && corepack prepare pnpm@9 --activate
+# ---- build: install workspace dependencies and bundle the server ----
+FROM node:24-bookworm-slim AS build
+RUN corepack enable && corepack prepare pnpm@11.19.0 --activate
 WORKDIR /app
 COPY . .
-# --no-frozen-lockfile: the committed lockfile's overrides section can mismatch
-# the pnpm version in this image; let install reconcile rather than hard-fail.
-RUN pnpm install --no-frozen-lockfile
+RUN pnpm install --frozen-lockfile
 RUN pnpm --filter @workspace/api-server test
 RUN pnpm --filter @workspace/api-server build
 
-# ---- runtime: just the self-contained bundle (same artifact Replit runs) ----
-FROM node:22-bookworm-slim AS runtime
+# ---- runtime: bundled server plus verified filesystem source ----
+FROM node:24-bookworm-slim AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=8080
 COPY --from=build /app/artifacts/api-server/dist ./dist
+COPY --from=build /app/public ./public
+COPY --from=build /app/sources ./sources
 COPY --from=build /app/story-desk ./story-desk
+COPY --from=build /app/alex-source.lock.json ./alex-source.lock.json
 EXPOSE 8080
-CMD ["node", "--enable-source-maps", "dist/index.mjs"]
+CMD ["node", "--enable-source-maps", "dist/story-desk.mjs"]

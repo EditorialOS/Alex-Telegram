@@ -1,0 +1,10 @@
+{
+  "_comment": "Model routing. Edit here, never in canon. provider: anthropic | openai_compatible.",
+  "reasoning":      {"provider": "anthropic", "model": "claude-fable-5"},
+  "implementation": {"provider": "anthropic", "model": "claude-sonnet-4-6"},
+  "voice":          {"provider": "anthropic", "model": "claude-sonnet-4-6"},
+  "_example_kimi":  {"provider": "openai_compatible", "model": "kimi-k2",
+                     "base_url": "https://api.moonshot.ai/v1", "api_key_env": "KIMI_API_KEY"},
+  "_example_local_voice": {"provider": "openai_compatible", "model": "local",
+                     "base_url": "http://localhost:8081/v1", "api_key_env": ""}
+}

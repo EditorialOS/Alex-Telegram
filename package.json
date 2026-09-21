@@ -1,15 +1,26 @@
 {
   "name": "workspace",
   "version": "0.0.0",
+  "type": "module",
+  "engines": {
+    "node": "24.x"
+  },
   "license": "MIT",
   "scripts": {
     "preinstall": "sh -c 'rm -f package-lock.json yarn.lock; case \"$npm_config_user_agent\" in pnpm/*) ;; *) echo \"Use pnpm instead\" >&2; exit 1 ;; esac'",
     "build": "pnpm run typecheck && pnpm -r --if-present run build",
     "typecheck:libs": "tsc --build",
-    "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck"
+    "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck && pnpm run typecheck:vercel",
+    "typecheck:vercel": "tsc -p tsconfig.vercel.json --noEmit"
   },
   "private": true,
+  "dependencies": {
+    "@workspace/api-server": "workspace:*",
+    "express": "^5.2.1"
+  },
   "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "catalog:",
     "prettier": "^3.8.3",
     "typescript": "~5.9.3"
   }

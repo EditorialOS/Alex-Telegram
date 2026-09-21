@@ -1,7 +1,8 @@
 # Alex Story Desk V.1 — private ChatGPT setup
 
 Story Desk exposes one OAuth-protected Streamable HTTP MCP endpoint at
-`/api/mcp`. It has no dashboard or separate web chat.
+`/api/mcp` on the Alex Core Vercel project. It has no dashboard or separate web
+chat.
 
 ## Included operations
 
@@ -17,8 +18,14 @@ the Box integration is deferred to V.2.
 
 ## 1. Apply the Supabase schema
 
-Run `lib/db/migrations/0001_story_desk_v1.sql` in the Supabase SQL editor or
-with `psql`. Existing Slack and Telegram tables are unchanged.
+First set **Database > API > Exposed schemas** to only
+`pg_pgrst_no_exposed_schemas`, or disable the Data API. Do not expose `public`:
+Story Desk holds private client context and generated editorial material.
+
+Then run `lib/db/migrations/0001_story_desk_v1.sql` in the Supabase SQL editor
+or with `psql`. The migration creates the intentionally empty exposed schema,
+enables RLS, and revokes Data API roles from Story Desk tables. Existing Slack
+and Telegram tables are unchanged.
 
 Create the tenant record:
 
@@ -98,21 +105,29 @@ values
 This two-part mapping prevents a valid user token obtained by a different OAuth
 application from selecting a Story Desk tenant.
 
-## 3. Mount the verified Alex source
+## 3. Verify the vendored Alex source
 
-Unpack the approved Minimal OS archive outside this repository. Mount the
-result into the runtime read-only and set:
+Minimal OS 2.1 is vendored as ordinary, read-only-at-runtime files under
+`sources/minimal-os/2.1.0/`. Its authority chain is explicit:
 
-```text
-ALEX_SOURCE_ROOT=/opt/alex-source/minimal-os
-STORY_DESK_CONTRACT_ROOT=/app/story-desk/contracts
-```
+1. `orchestrator-protocol.md` v1.0.0
+2. `alex.md` v3.0.0
+3. the required manifest-listed specialist skills
+4. the separately versioned Story Desk commissioning contract
 
+`alex-source.lock.json` records the accepted source bundle and manifest hashes.
 Every job verifies every file in the source `MANIFEST.json` before loading the
-complete orchestrator, Story Commissioner, Content Strategist, Editorial Gate
-and Editorial Voice files. The separately versioned Story Desk commissioning
-contract is also verified. A mismatch halts the job with
-`source_integrity_failed`.
+orchestrator protocol, Alex instance, Story Commissioner, Content Strategist,
+Editorial Gate and Editorial Voice. The Story Desk contract manifest is checked
+against the same OS and Editorial Gate versions. A missing, misversioned or
+modified file halts the job with `source_integrity_failed`.
+
+Vercel uses the vendored paths automatically. `ALEX_SOURCE_ROOT` and
+`STORY_DESK_CONTRACT_ROOT` exist only as explicit local/test overrides; do not
+configure external source mounts for production.
+
+Eve is a filesystem-first architecture reference, not a dependency. Nothing in
+this setup installs or executes Eve.
 
 ## 4. Configure inline downloads
 
@@ -144,7 +159,7 @@ but the V.1 runtime does not instantiate the adapter or require `BOX_*` secrets.
 
 ## 5. Connect privately in ChatGPT
 
-After deployment to an approved host with stable HTTPS:
+After an approved Vercel deployment has a stable HTTPS URL:
 
 1. Enable ChatGPT developer mode under **Settings > Security**.
 2. Add `https://YOUR_APPROVED_HOST/api/mcp` as a Streamable HTTP MCP server.
@@ -163,7 +178,8 @@ https://YOUR_APPROVED_HOST/.well-known/oauth-protected-resource
 https://YOUR_PROJECT_REF.supabase.co/.well-known/oauth-authorization-server/auth/v1
 ```
 
-No deployment is performed by this repository change. VPS deployment is not
-part of the Story Desk V.1 setup. Fly.io or Sprites can be evaluated separately
-once their project identifiers, secret configuration and desired host are
-provided.
+The repository change does not deploy, migrate secrets or alter infrastructure.
+Follow `DEPLOY.md` for the approval-gated Vercel preview and production sequence.
+Supabase Auth remains the OAuth authority and Supabase Postgres remains the
+business system of record; Vercel supplies the application and model-routing
+runtime.

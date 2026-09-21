@@ -177,6 +177,7 @@ export class StoryDeskService {
     await this.store.appendEvent(client.id, job.id, "source_verified", {
       os_version: skills.osVersion,
       contract_version: skills.contractVersion,
+      provenance: skills.provenance,
     });
 
     await this.transition(client.id, job.id, "generating_opportunities");

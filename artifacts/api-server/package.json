@@ -3,10 +3,14 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "exports": {
+    "./story-desk-app": "./src/storyDeskApp.ts"
+  },
   "scripts": {
     "dev": "export NODE_ENV=development && pnpm run build && pnpm run start",
     "build": "node ./build.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",
+    "start:story-desk": "node --enable-source-maps ./dist/story-desk.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "node --import tsx --test \"test/**/*.test.ts\""
   },

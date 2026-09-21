@@ -38,14 +38,34 @@ function downloadSigner(ttlSeconds = 3600): StoryDeskDownloadSigner {
 }
 
 const sourceSkills: VerifiedSkills = {
-  osVersion: "2.0.0",
+  osVersion: "2.1.0",
   contractVersion: "1.0.0",
-  orchestrator: "ORCHESTRATOR",
+  orchestratorProtocol: "ORCHESTRATOR PROTOCOL",
+  alexInstance: "ALEX INSTANCE",
   storyCommissioner: "STORY COMMISSIONER",
   contentStrategist: "CONTENT STRATEGIST",
   editorialGate: "EDITORIAL GATE DEFAULT",
   editorialVoice: "EDITORIAL VOICE",
   storyDeskGateContract: "story_desk_commissioning five criteria",
+  provenance: {
+    osVersion: "2.1.0",
+    sourceManifestSha256: "a".repeat(64),
+    contractVersion: "1.0.0",
+    contractManifestSha256: "b".repeat(64),
+    files: {
+      orchestratorProtocol: { path: "orchestrator-protocol.md", version: "1.0.0", sha256: "1".repeat(64) },
+      alexInstance: { path: "alex.md", version: "3.0.0", sha256: "2".repeat(64) },
+      storyCommissioner: { path: "skills/story-commissioner.md", version: "1.1.0", sha256: "3".repeat(64) },
+      contentStrategist: { path: "skills/content-strategist.md", version: "1.1.0", sha256: "4".repeat(64) },
+      editorialGate: { path: "skills/editorial-gate.md", version: "1.1.0", sha256: "5".repeat(64) },
+      editorialVoice: { path: "skills/editorial-voice.md", version: "1.1.0", sha256: "6".repeat(64) },
+      storyDeskGateContract: {
+        path: "editorial-gate-story-desk-v1.md",
+        version: "1.0.0",
+        sha256: "7".repeat(64),
+      },
+    },
+  },
 };
 
 function contextFiles() {
@@ -356,6 +376,9 @@ test("commissioning Gate derives the authoritative score once and excludes self-
   assert.equal(report.total, 20);
   assert.equal(report.disposition, "ready_to_commission");
   assert.equal(model.calls.length, 1);
+  assert.match(model.calls[0].system, /ORCHESTRATOR PROTOCOL/);
+  assert.match(model.calls[0].system, /ALEX INSTANCE/);
+  assert.match(model.calls[0].system, /EDITORIAL GATE DEFAULT/);
   assert.doesNotMatch(model.calls[0].user, /private_note|self_assessment/);
 });
 
@@ -421,6 +444,8 @@ test("end-to-end service is idempotent, tenant-isolated and version-binds decisi
   assert.equal(first.board?.briefs.length, 4);
   assert.equal(first.board?.gateReports.length, 4);
   assert.equal(model.calls.filter((call) => call.system.includes("story_desk_commissioning")).length, 4);
+  assert.ok(model.calls.every((call) => call.system.includes("ORCHESTRATOR PROTOCOL")));
+  assert.ok(model.calls.every((call) => call.system.includes("ALEX INSTANCE")));
   assert.equal(first.board?.downloads.length, 5);
   assert.ok(first.board?.downloads.every((item) => item.url.startsWith("https://story.example.com/api/story-desk/download?")));
   assert.equal(first.job.error, undefined);

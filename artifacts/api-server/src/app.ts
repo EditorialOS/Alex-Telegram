@@ -1,4 +1,5 @@
 import express, { type Express, type Request, type Response, type NextFunction } from "express";
+import path from "node:path";
 import cors from "cors";
 import pinoHttp from "pino-http";
 import router from "./routes/index.js";
@@ -28,6 +29,12 @@ app.use(
 );
 
 app.use(cors());
+
+app.use(express.static(
+  process.cwd().endsWith(path.join("artifacts", "api-server"))
+    ? path.resolve(process.cwd(), "../..", "public")
+    : path.resolve(process.cwd(), "public"),
+));
 
 function oauthProtectedResource(_req: Request, res: Response): void {
   try {
