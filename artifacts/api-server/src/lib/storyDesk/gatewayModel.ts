@@ -85,8 +85,9 @@ export class StoryDeskGatewayModel implements StoryDeskModel {
       system,
       messages: [{ role: "user", content: user }],
     });
-    const block = response.content.find((content) => content.type === "text");
-    if (!block || block.type !== "text")
+    const blocks = response.content as Array<{ type: string; text?: string }>;
+    const block = blocks.find((content) => content.type === "text");
+    if (!block?.text)
       throw new Error("Story Desk model returned no text.");
     return block.text;
   }
