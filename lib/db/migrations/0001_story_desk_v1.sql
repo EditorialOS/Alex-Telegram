@@ -7,8 +7,8 @@ set local search_path = public, pg_catalog;
 -- This intentionally empty schema supports Supabase projects configured with
 -- no Data API surface. Keeping it present lets PostgREST report healthy while
 -- exposing none of the Story Desk tables below.
-create schema if not exists pg_pgrst_no_exposed_schemas;
-revoke all privileges on schema pg_pgrst_no_exposed_schemas from public;
+create schema if not exists alex_no_data_api;
+revoke all privileges on schema alex_no_data_api from public;
 
 create table if not exists story_desk_clients (
   id text primary key,
@@ -170,7 +170,7 @@ create table if not exists story_desk_idempotency (
   foreign key (client_id, job_id) references story_desk_jobs(client_id, id)
 );
 
-do $$
+do $story_desk_migration$
 begin
   if not exists (
     select 1
@@ -185,12 +185,12 @@ begin
       deferrable initially deferred;
   end if;
 end
-$$;
+$story_desk_migration$;
 
 -- Supabase exposes the public schema through its Data API by default. The
 -- server connects directly to Postgres as the table owner, while browser/API
 -- roles must never read or mutate private client context or generated work.
-do $$
+do $story_desk_permissions$
 declare
   table_name text;
   role_name text;
@@ -199,7 +199,7 @@ begin
   loop
     if exists (select 1 from pg_roles where rolname = role_name) then
       execute format(
-        'revoke all privileges on schema pg_pgrst_no_exposed_schemas from %I',
+        'revoke all privileges on schema alex_no_data_api from %I',
         role_name
       );
     end if;
@@ -267,6 +267,6 @@ begin
     end if;
   end loop;
 end
-$$;
+$story_desk_permissions$;
 
 commit;

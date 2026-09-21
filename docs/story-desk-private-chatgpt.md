@@ -19,7 +19,7 @@ the Box integration is deferred to V.2.
 ## 1. Apply the Supabase schema
 
 First set **Database > API > Exposed schemas** to only
-`pg_pgrst_no_exposed_schemas`, or disable the Data API. Do not expose `public`:
+`alex_no_data_api`, or disable the Data API. Do not expose `public`:
 Story Desk holds private client context and generated editorial material.
 
 Then run `lib/db/migrations/0001_story_desk_v1.sql` in the Supabase SQL editor
