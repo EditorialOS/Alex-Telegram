@@ -6,7 +6,7 @@ import express, {
   type Response,
 } from "express";
 import cors from "cors";
-import pinoHttp from "pino-http";
+import { pinoHttp } from "pino-http";
 import { logger } from "./lib/logger.js";
 import { storyDeskResourceMetadata } from "./lib/storyDesk/auth.js";
 import healthRouter from "./routes/health.js";

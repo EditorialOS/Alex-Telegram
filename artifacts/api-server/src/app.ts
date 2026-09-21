@@ -1,7 +1,7 @@
 import express, { type Express, type Request, type Response, type NextFunction } from "express";
 import path from "node:path";
 import cors from "cors";
-import pinoHttp from "pino-http";
+import { pinoHttp } from "pino-http";
 import router from "./routes/index.js";
 import { logger } from "./lib/logger.js";
 import { storyDeskResourceMetadata } from "./lib/storyDesk/auth.js";
