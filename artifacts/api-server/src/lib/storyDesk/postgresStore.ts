@@ -12,7 +12,7 @@ import {
   storyDeskClientIdentities,
   storyDeskJobEvents,
   storyDeskJobs,
-} from "@workspace/db";
+} from "../../../../../lib/db/src/index.js";
 import { and, eq, sql } from "drizzle-orm";
 import type {
   ApprovalSelection,

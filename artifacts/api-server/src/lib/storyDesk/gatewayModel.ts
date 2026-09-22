@@ -1,7 +1,7 @@
 import {
   createAnthropicMessagesClient,
   type AnthropicMessagesClient,
-} from "@workspace/integrations-anthropic-ai/messages-client";
+} from "../../../../../lib/integrations-anthropic-ai/src/messagesClient.js";
 import type { StoryDeskModel } from "./workers.js";
 
 const VERCEL_AI_GATEWAY_URL = "https://ai-gateway.vercel.sh";
